@@ -287,5 +287,25 @@ gp.ord<-ordinate(gp, "MDS", gp.dist)
 plot_ordination(gp, gp.ord, type="samples")
 
 #export data to bring into shiny
+
+#exporting the distance matrix as a table/ importing and using as.dist works!
 write.table(as.matrix(gp.dist), "gp_dist.txt")
-gp
+
+write.table(gp.sp.test, "gp_sp.txt")
+
+coordinates(gp.sp.test) = c("Longitude", "Latitude")
+wc.tmean.crop<-crop(wc.tmean, (extent(gp.sp.test)+50))
+
+#looks ok
+plot(wc.tmean.crop)
+points(coordinates(gp.sp.test), col="red", pch=20)
+
+wc.prec.crop<-crop(wc.prec, (extent(gp.sp.test)+50))
+npp.crop<-crop(npp, (extent(gp.sp.test)+50))
+
+writeRaster(wc.tmean.crop, "wc_tmean_crop")
+writeRaster(wc.prec.crop, "wc_prec_crop")
+writeRaster(npp.crop, "npp_crop")
+
+#test first try at simple map
+runApp()
