@@ -309,3 +309,9 @@ writeRaster(npp.crop, "npp_crop")
 
 #test first try at simple map
 runApp()
+
+#check if maps really look that similar
+plot(wc.tmean.crop)
+plot(wc.prec.crop)
+plot(npp.crop)
+#no they don't

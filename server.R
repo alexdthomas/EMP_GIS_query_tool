@@ -28,12 +28,11 @@ npp_crop<-raster("C:/Users/asus4/Documents/EarthMicrobiomeProject/R/EMP_GIS_quer
 
 #define server
 shinyServer(function(input, output){
-	rastInput <-reactive({
-			switch(input$rast,
-								"wc_prec_crop" = wc_prec_crop, 
-								"wc_tmean_crop" = wc_tmean_crop, 
-								"npp_crop" = npp_crop,
-					 wc_tmean_crop)
+rastInput <-reactive({
+	switch(input$rast,
+				 "Mean Annual Precipitation" = wc_prec_crop,
+				 "Mean Annual Temperature" = wc_tmean_crop, 
+				 "Net Primary Productivity" = npp_crop)
 })
 	
 	#return text for printing caption for map
@@ -43,9 +42,9 @@ shinyServer(function(input, output){
 	
 	#generate plot of requrest raster
 	output$gp.spPlot<- renderPlot({
-		rast<-rastInput()
+		#rast<-rastInput()
 		
-		plot(rast)
+		plot(rastInput())
 		#points(coordinates(gp.sp), col="red", pch=20)
 	})
 	

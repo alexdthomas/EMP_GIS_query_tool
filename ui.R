@@ -38,7 +38,7 @@ shinyUI(pageWithSidebar(
 # 								min= 0, max= 100, value= c(45, 55)),
 # 	br(),
 	selectInput("rast", "Plot Data:", 
-							choices=list("Mean Annual Precipitation", 
+							choices=c("Mean Annual Precipitation", 
 									 "Mean Annual Temperature", 
 									 "Net Primary Productivity"))
 	),
