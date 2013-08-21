@@ -7,6 +7,7 @@ library(phyloseq)
 library(sp)
 library(rgdal)
 library(raster)
+library(maptools)
 
 data(GlobalPatterns)
 GlobalPatterns
@@ -98,6 +99,19 @@ projection(gp.sp)
 #latitude / longitude coordinate reference system (not projected) 
 #and the datum is WGS84
 
+#probably should still convert see ?spTransform
+#" In general +datum= is to be prefered to +ellps=, because the datum
+#always fixes the ellipsoid, but the ellipsoid never fixes the datum."
+wc.alt<-projectRaster(wc.alt, crs=proj4string(gp.sp))
+#this takes a really long time and I don't think it really makes a 
+#difference, do the rest later...
+projection(wc.alt)
+#R crashed using zoom, lost this projection..
+
+#do they look different
+plot(wc.alt)
+plot(wc.prec, add=TRUE)
+
 #exctact values to points
 gp.sp$wc.alt<-extract(wc.alt, coordinates(gp.sp))
 
@@ -147,17 +161,131 @@ wc.tmin<-wc.tmin/10
 
 #add values to dataset
 gp.sp.test<-gp.sp
-head(gp.sp.test)
-test<-extract(wc.bio, coordinates(gp.sp))
-unlist(test)
-gp.sp.test$bio1<-extract(wc.bio[[1]], coordinates(gp.sp.test))
-gp.sp.test<-cbind(gp.sp.test, extract(wc.bio[[2]], coordinates(gp.sp.test)))
-gp.sp.test[,(ncol(gp.sp.test)+1)]<-extract(wc.bio[[1]], coordinates(gp.sp.test))
+gp.sp.test
 
-#gp.sp<-sapply(wc.bio, function(x) cbind(gp.sp, (extract(x, coordinates(gp.sp)))))
-gp.sp.test<-sapply(1:nlayers(wc.bio), function(x){
-	gp.sp.test<-cbind(gp.sp.test, extract(wc.bio[[x]], coordinates(gp.sp.test)))
-})
-wc.bio[[19]]
+#on wc.bio raster stack
+wc.bio.test<-extract(wc.bio, coordinates(gp.sp.test), df=TRUE)
+ncol(wc.bio.test)
+colnames(wc.bio.test)<-(c("ID", paste("bio", 1:19, sep="")))
+#note, regular cbind converts SpatialPointsDataFrame to data frame
+#use spCbind from maptools instead
+gp.sp.test<-spCbind(gp.sp.test, wc.bio.test[,2:20])
 
-emp.border<-over(gp.sp, borders, returnList=FALSE)
+
+gp.sp.test$wc.prec<-extract(wc.prec, coordinates(gp.sp.test))
+gp.sp.test$wc.tmax<-extract(wc.tmax, coordinates(gp.sp.test))
+gp.sp.test$wc.tmin<-extract(wc.tmin, coordinates(gp.sp.test))
+gp.sp.test$wc.tmean<-extract(wc.tmean, coordinates(gp.sp.test))
+
+#back to the WHSD database, now in SQLite (hopefully...)
+#according to 
+#looks like can extract hwsd cell values to data frame
+#then match to attribute data in SQLite
+gp.sp.test$hwsd<-extract(hwsd, coordinates(gp.sp.test))
+#right, the ocean samples get no soil cells, but nearest may still be helpful...
+#oh, and will have no salinity...
+
+#this should get the nearest cell
+gp.sp.test$hwsd<-extract(hwsd, coordinates(gp.sp.test), buffer=600, small=TRUE)
+#well, it works, but returns lists, kind of messy
+gp.sp.test<-gp.sp.test[, -32]
+
+#try RSAGA pick.from.saga.grid
+library(RSAGA)
+xy<-as.data.frame(coordinates(gp.sp.test))
+colnames(xy)<-c("X.name", "Y.name")
+gp.sp.test$hwsd<-pick.from.ascii.grid(xy, filename=hwsd)
+#that's a pain, annoying error message, can't figure out...
+
+#can I see it?
+plot(hwsd)
+points(coordinates(gp.sp[9:14,]), col="red", pch=20)
+extent(coordinates(gp.sp.test[9:11,]))
+zoom(hwsd, extent(c(-118.0, -117.0, 32.0, 33.0)))
+click(hwsd)
+
+#export points and see if I can find them in QGIS
+writeOGR(gp.sp.test, dsn=getwd(), driver="ESRI Shapefile", layer="gp_sp_test")
+#ok, this 0 values should be 4766...
+
+#easier to extract with no buffers and edit...
+gp.sp.test$hwsd<-extract(hwsd, coordinates(gp.sp.test))
+#and have to convert
+gp.sp.test<-data.frame(gp.sp.test)
+gp.sp.test[9:11, "hwsd"]<-4766
+coordinates(gp.sp.test) = c("Longitude", "Latitude")
+
+#ok, now try to extract attributes from SQLite database
+require(RSQLite)
+
+m<-dbDriver("SQLite")
+con<-dbConnect(m, dbname="C:/Users/asus4/Documents/GIS/Data/Harmonized_World_Soil_Database/HWSD")
+dbListTables(con)							 
+
+dbGetQuery(con, "pragma table_info(HWSD_DATA)")$name
+
+hwsd.id<-gp.sp.test$hwsd
+
+(display.fields <- c("ID", "MU_GLOBAL", "ISSOIL", "SHARE", "SU_CODE90", "SU_SYM90", "T_USDA_TEX_CLASS"))
+
+tmp <- dbGetQuery(con, paste("select", paste(display.fields, collapse = ", "), "from HWSD_DATA"))
+#print(tmp)
+class(tmp)
+head(tmp)
+tmp[which(tmp$MU_GLOBAL%in% hwsd.id), ]
+
+(hwsd.ex <- dbGetQuery(con, paste("select * from HWSD_DATA where MU_GLOBAL = ", 4885)))
+
+#well, having a hard time getting this exact method to work, 
+#but found one that does
+
+#make a reasonable list of soil variables 
+display.fields <- c("MU_GLOBAL", "ISSOIL", "T_USDA_TEX_CLASS", "T_GRAVEL", "T_SAND", "T_SILT", "T_CLAY", "T_BULK_DENSITY", "T_OC", "T_PH_H2O", "T_BS", "T_ECE")
+#query the list
+tmp <- dbGetQuery(con, paste("select", paste(display.fields, collapse = ", "), "from HWSD_DATA"))
+#now it's a dataframe and I can match it
+tmp<-tmp[which(tmp$MU_GLOBAL%in% hwsd.id), ]
+#spCbind what I want to my data frame
+#hmm, there are more than value per MU_GLOBAL ID
+#not sure why, but reasonable short term solution is to average
+tmp<-apply(tmp, 2, function(x) as.numeric(x))
+tmp<-data.frame(tmp)
+tmp<-stats::aggregate(. ~ MU_GLOBAL, data=tmp, mean)
+
+gp.sp.test<-data.frame(gp.sp.test)
+colnames(gp.sp.test)[32]<-"MU_GLOBAL"
+library(plyr)
+gp.sp.test<-join(gp.sp.test, tmp, by="MU_GLOBAL")
+coordinates(gp.sp.test)= c("Longitude", "Latitude")
+
+#grab NPP
+#and another package for ArcInfo files
+library(RArcInfo)
+npp<-get.arcdata("C:/Users/asus4/Documents/GIS/Data/NASA/NPP/info")
+
+#thad didn't work, try these
+library(grid)
+#npp<-readGDAL("C:/Users/asus4/Documents/GIS/Data/NASA/NPP/npp_geotiff/npp_geotiff.TIF")
+#this created a SpatialGridDataFrame, couldn't extract...
+npp<-raster("C:/Users/asus4/Documents/GIS/Data/NASA/NPP/npp_geotiff/npp_geotiff.TIF")
+#raster works though, not file is .TIF not .tiff or .TIFF
+#that worked
+gp.sp.test$npp<-extract(npp, coordinates(gp.sp.test))
+
+#what about ocean salinity?
+#still waiting to receive that data...
+
+#so try to feed the new sample data back into phyloseq
+#try to query by data and make ordinations
+gp.sp.test<-data.frame(gp.sp.test)
+rownames(gp.sp.test)<-sample_names(gp)
+sample_data(gp)<-gp.sp.test
+sample_data(gp)
+
+gp.dist<-UniFrac(gp)
+gp.ord<-ordinate(gp, "MDS", gp.dist)
+plot_ordination(gp, gp.ord, type="samples")
+
+#export data to bring into shiny
+write.table(as.matrix(gp.dist), "gp_dist.txt")
+gp
