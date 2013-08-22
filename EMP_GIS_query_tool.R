@@ -325,44 +325,25 @@ writeRaster(npp_crop, "npp_crop", overwrite=TRUE)
 #test first try at simple map
 runApp()
 
-#check if maps really look that similar
-#(wc.tmean.crop)
-#plot(wc.prec.crop)
-#plot(npp.crop)
-#no they don't
-
-bbox(wc.tmean.crop)
-bbox(coordinates(gp.sp))
-
-#(wc.tmean.crop)
-#plot(gp.sp, col="red", pch=20)
-
-image(wc.tmean.crop)
-
 #subsetting the points
 #right, have to do this before I convert to SpatialPointsDataFrame
 #or convert back to data frame, subset, and convert back, but thats silly
-colnames(gp.sp)
-quantile(gp.sp$wc.prec)
 
 #ok, cool
-min(gp.sp)
 gp.sp[(gp.sp[,"wc.prec"] >20 & gp.sp[,"wc.prec"] < 30), ]
 
 #now to get the optional min and max for the sliders can use
 #conditional panels 
 max(gp.sp[,c("wc.prec", "wc.tmean", "npp")])
-range(gp.sp[,"wc.prec"])
-range(gp.sp[,"wc.tmean"])
-range(gp.sp[,"npp"])
+range(data.frame(gp.sp[,"wc.prec"]))
+range(data.frame(gp.sp[,"wc.tmean"]))
+range(data.frame(gp.sp[,"npp"]))
 
 test<-data.frame(gp.sp)
 test<-test[(test[,"wc.prec"] >20 & test[,"wc.prec"] < 30), ]
 coordinates(test) = c("Longitude", "Latitude")
 proj4string(test)<-CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
 
-bbox(test)
-summary(test)
 #plot(wc_prec_crop)
 #plot(test, col="red", pch=20, cex=2, add=TRUE)
 
@@ -390,25 +371,58 @@ dim(gp.veganotu)
 #redo with cmdscale
 gp.cmdscale<-cmdscale(gp.dist, nrow(gp.veganotu)-1, eig=TRUE)
 
-gp.envfit<-envfit(gp.cmdscale, data.frame(gp.sp))
+gp.sp.edit<-data.frame(gp.sp)
+gp.sp.edit<-gp.sp.edit[,c(6:34, 36:46)]
 
-zoo.envfit<-envfit(zoo.nmds, z.env[,8:90], perm=999, choices=c(1,2), display="sites")
+gp.envfit<-envfit(gp.cmdscale, gp.sp.edit)
 
-zoo.envfit$vectors$r
-zoo.envfit.plot<-as.matrix(zoo.envfit$vectors$r)
-summary(zoo.envfit.plot)
-names(zoo.envfit.plot[zoo.envfit.plot>0.2,])
-names(zoo.envfit$vectors$arrows[,1])
+spe.wa<-wascores(gp.cmdscale$points[,1:2], gp.veganotu)
+head(spe.wa)
+#maybe can come up with way to select OTU most associated with samples or something...
 
-par(mfrow=c(1,1), mar=c(0,0,0,0))
-plot(zoo.nmds, type="non", display=c("wa", "sp"), main="", 
-		 xaxt="n", yaxt="n", ylab="", xlab="", sub="stress 20.6")
-abline(0,0, h=0, v=0, col="grey", lty=2)
-arrows(0, 0, 
-			 zoo.envfit$vectors$arrows[names(zoo.envfit.plot[zoo.envfit.plot>0.2,]), 1], 
-			 zoo.envfit$vectors$arrows[names(zoo.envfit.plot[zoo.envfit.plot>0.2,]), 2], 
-			 angle=20, col="lightblue", length=0.1)
-text(zoo.envfit$vectors$arrows[names(zoo.envfit.plot[zoo.envfit.plot>0.2,]), 1], 
-		 zoo.envfit$vectors$arrows[names(zoo.envfit.plot[zoo.envfit.plot>0.2,]), 2], 
-		 col="black", cex=0.7, labels=c("TYR", "MPR", "MCA", "MCS", "GFA", "VRS"))
+#modify this code from here 
+#http://stackoverflow.com/questions/14711470/plotting-envfit-vectors-vegan-package-in-ggplot2
+require(ggplot2)
+require(grid)
 
+gp.cmdscale.pts <- as.data.frame(scores(gp.cmdscale, display = "sites"))
+gp.cmdscale.pts$SampleType<-gp.sp.edit$SampleType
+
+#gp.envfit.plot<-as.matrix(gp.envfit$vectors$r)
+
+gp.envfit.v <- as.data.frame(scores(gp.envfit, display = "vectors"))
+gp.envfit.v <- cbind(gp.envfit.v, var = rownames(gp.envfit.v))
+#spp.scrs <- spp.scrs[names(gp.envfit.plot[gp.envfit.plot>0.7,]),]
+
+p <- ggplot(gp.cmdscale.pts) +
+	geom_point(mapping = aes(x = Dim1, y = Dim2, colour = SampleType)) +
+	coord_fixed() + ## need aspect ratio of 1!
+	geom_segment(data = gp.envfit.v,
+							 aes(x = 0, xend = Dim1, y = 0, yend = Dim2),
+							 arrow = arrow(length = unit(0.25, "cm")), colour = "grey") +
+	geom_text(data = gp.envfit.v, aes(x = Dim1, y = Dim2, label = var),
+						size = 3)
+
+p
+#still not super legable, but use it for now
+
+# ordiplot(scores(gp.cmdscale)[,c(1,2)], type="t", main="PCoA with 'species'")
+# abline(0,0, h=0, v=0, col="grey", lty=2)
+# #text()
+# plot(gp.envfit, choices=c(1,2), col="blue", p.max=0.002, cex=0.7)
+
+#subset points to plot by what is selected?
+test<-read.table("C:/Users/asus4/Documents/EarthMicrobiomeProject/R/EMP_GIS_query_tool/gp_sp.txt")
+rownames(test)
+test<-rownames(test[(test[,"wc.prec"] >20 & test[,"wc.prec"] < 30), ])
+
+test2<-gp.cmdscale.pts[which(rownames(gp.cmdscale.pts)%in% test), ]
+
+ggplot(test2) +
+	geom_point(mapping = aes(x = Dim1, y = Dim2, colour = SampleType)) +
+	coord_fixed() #+ ## need aspect ratio of 1!
+	geom_segment(data = gp.envfit.v,
+							 aes(x = 0, xend = Dim1, y = 0, yend = Dim2),
+							 arrow = arrow(length = unit(0.25, "cm")), colour = "grey") +
+	geom_text(data = gp.envfit.v, aes(x = Dim1, y = Dim2, label = var),
+						size = 3)

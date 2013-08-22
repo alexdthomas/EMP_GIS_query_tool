@@ -46,10 +46,18 @@ shinyServer(function(input, output){
 })
 	
 	#subset the global patterns environmental data frame by user input
+	gp.sub<-reactive({
+		gp.sp.sub<-gp.sp[(gp.sp[,input$col1] >= input$col1.min & 
+							        gp.sp[,input$col1] <= input$col1.max), ]
+	})
+	
+	#sub names by user input
 	gp.subNames<-reactive({
 		gp.sp.sub<-rownames(gp.sp[(gp.sp[,input$col1] >= input$col1.min & 
 												gp.sp[,input$col1] <= input$col1.max), ])
 	})
+	
+	#create SpatialPointsDataFrame by user input
 	gp.spInput<-reactive({
 		gp.sp.sub<-gp.sp[(gp.sp[,input$col1] >= input$col1.min & 
 											gp.sp[,input$col1] <= input$col1.max), ]
@@ -60,15 +68,16 @@ shinyServer(function(input, output){
 																			data=gp.sp.sub)
 		})
 	
+		#subset the points plotted in ordination by user input
 		gp.ordInput<-reactive({
 			gp.ord.sub<-gp.cmdscale.pts[which(rownames(gp.cmdscale.pts)%in% print(gp.subNames())), ]
 			
 		})
 	
-	#generate plot of requrest raster
+	#generate plot of requested raster and selected points
 	output$gp.spPlot<- renderPlot({
-			plot(rastInput())
-			plot(gp.spInput(), col="red", pch=20, cex=2, add=TRUE)
+			plot(rastInput(), box=FALSE, axes=FALSE)
+			plot(gp.spInput(), col="red", pch=20, cex=2, add=TRUE, box=FALSE)
 	})
 	
 	#generate ordination plot with subset points
@@ -84,15 +93,15 @@ shinyServer(function(input, output){
 		print(p)
 	})
 	
-	output$gp.spTable<-renderTable({
-		
+	#generate table of attributes for selected points
+	output$gp.tablePrint<-renderTable({
+		gp.sub()
 	})
 	
 	#test stuff in app
-	output$test<-renderPrint({
-		test<-gp.ordInput()
-		print(test)
-	})
-	
+# 	output$test<-renderPrint({
+# 		test<-gp.ordInput()
+# 		print(test)
+# 	})
 })
 

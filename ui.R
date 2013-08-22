@@ -47,7 +47,8 @@ shinyUI(pageWithSidebar(
 		tabsetPanel(
 			tabPanel("Map", plotOutput("gp.spPlot")),
 			tabPanel("PCoA", plotOutput("gp.ordPlot")),
-			tabPanel("test", verbatimTextOutput("test"))
+			tabPanel("Attribute Table", tableOutput("gp.tablePrint"))
+			#tabPanel("test", verbatimTextOutput("test"))
 		)
 	)
 	))
