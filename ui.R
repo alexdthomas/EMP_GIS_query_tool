@@ -15,14 +15,14 @@ shinyUI(pageWithSidebar(
 	#Sidebar allows querying conditions of different variables 
 	sidebarPanel(
 		#select column variable in the sample data 
-# 		selectInput("co1", "Variable:", 
-# 								list("Mean Annual Precipitation"="wc.prec", 
-# 										 "Mean Annual Temperature" = "wc.tmean", 
-# 										 "Net Primary Productivity" = "npp")), 
-# 		#use slider to subset sample data
-# 		sliderInput("range", "Range:", 
-# 								min= 0, max= 100, value= c(45, 55)),
-# 		br(),
+		selectInput("col1", "Subset Points By:", 
+								list("Mean Annual Precipitation"="wc.prec", 
+										 "Mean Annual Temperature" = "wc.tmean", 
+										 "Net Primary Productivity" = "npp")), 
+		#use slider to subset sample data
+		numericInput("col1.min", "Minimum Value:", 20),
+		numericInput("col1.max", "Maximum Value:", 30),
+		br(),
 # 		selectInput("co2", "Variable:", 
 # 								list("Mean Annual Precipitation"="wc.prec", 
 # 										 "Mean Annual Temperature" = "wc.tmean", 
@@ -37,7 +37,7 @@ shinyUI(pageWithSidebar(
 # 		sliderInput("range", "Range:", 
 # 								min= 0, max= 100, value= c(45, 55)),
 # 	br(),
-	selectInput("rast", "Plot Data:", 
+	selectInput("rast", "Plot Raster:", 
 							choices=c("Mean Annual Precipitation", 
 									 "Mean Annual Temperature", 
 									 "Net Primary Productivity"))
@@ -46,6 +46,8 @@ shinyUI(pageWithSidebar(
 	mainPanel(
 		#h3(textOutput("caption")), 
 		
-		plotOutput("gp.spPlot")
+		plotOutput("gp.spPlot"),
+		
+		verbatimTextOutput("gp.sp.head")
 	)
 	))

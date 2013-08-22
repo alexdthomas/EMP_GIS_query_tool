@@ -315,3 +315,39 @@ plot(wc.tmean.crop)
 plot(wc.prec.crop)
 plot(npp.crop)
 #no they don't
+
+bbox(wc.tmean.crop)
+bbox(coordinates(gp.sp.test))
+
+plot(wc.tmean.crop)
+plot(gp.sp.test, col="red", pch=20)
+
+image(wc.tmean.crop)
+
+#subsetting the points
+#right, have to do this before I convert to SpatialPointsDataFrame
+#or convert back to data frame, subset, and convert back, but thats silly
+colnames(gp.sp)
+quantile(gp.sp$wc.prec)
+
+gp.sp[gp.sp[,"wc.prec"] == 20:70, ]
+gp.sp[gp.sp$wc.prec <70 & gp.sp$wc.prec>20, ]
+#ok, cool
+min(gp.sp)
+gp.sp[(gp.sp[,"wc.prec"] >20 & gp.sp[,"wc.prec"] < 30), ]
+
+#now to get the optional min and max for the sliders can use
+#conditional panels 
+max(gp.sp[,c("wc.prec", "wc.tmean", "npp")])
+range(gp.sp[,"wc.prec"])
+range(gp.sp[,"wc.tmean"])
+
+test<-data.frame(gp.sp)
+test<-test[(test[,"wc.prec"] >20 & test[,"wc.prec"] < 30), ]
+coordinates(test) = c("Longitude", "Latitude")
+proj4string(test)<-CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
+
+bbox(test)
+summary(test)
+plot(wc_prec_crop)
+plot(test, col="red", pch=20, cex=2, add=TRUE)
