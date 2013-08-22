@@ -84,6 +84,10 @@ shinyServer(function(input, output){
 		print(p)
 	})
 	
+	output$gp.spTable<-renderTable({
+		
+	})
+	
 	#test stuff in app
 	output$test<-renderPrint({
 		test<-gp.ordInput()
