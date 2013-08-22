@@ -44,10 +44,10 @@ shinyUI(pageWithSidebar(
 	),
 	#plot map with points 
 	mainPanel(
-		#h3(textOutput("caption")), 
-		
-		plotOutput("gp.spPlot"),
-		
-		verbatimTextOutput("gp.sp.head")
+		tabsetPanel(
+			tabPanel("Map", plotOutput("gp.spPlot")),
+			tabPanel("PCoA", plotOutput("gp.ordPlot")),
+			tabPanel("test", verbatimTextOutput("test"))
+		)
 	)
 	))

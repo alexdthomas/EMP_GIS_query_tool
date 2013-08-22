@@ -4,6 +4,9 @@ require(sp)
 require(rgdal)
 require(raster)
 require(maptools)
+require(ggplot2)
+require(grid)
+require(vegan)
 
 #import GlobalPatterns
 data(GlobalPatterns)
@@ -21,9 +24,17 @@ wc_tmean_crop<-raster("C:/Users/asus4/Documents/EarthMicrobiomeProject/R/EMP_GIS
 wc_prec_crop<-raster("C:/Users/asus4/Documents/EarthMicrobiomeProject/R/EMP_GIS_query_tool/wc_prec_crop")
 npp_crop<-raster("C:/Users/asus4/Documents/EarthMicrobiomeProject/R/EMP_GIS_query_tool/npp_crop")
 
-#checked in clean environement and this works
-#gp.ord<-ordinate(gp, "MDS", as.dist(gp.dist))
-#plot_ordination(gp, gp.ord, type="samples")
+#set up for the ordination plot
+gp.cmdscale<-cmdscale(gp.dist, nrow(gp.veganotu)-1, eig=TRUE)
+gp.sp.edit<-gp.sp
+gp.sp.edit<-gp.sp.edit[,c(6:34, 36:46)]
+gp.envfit<-envfit(gp.cmdscale, gp.sp.edit)
+
+gp.cmdscale.pts <- as.data.frame(scores(gp.cmdscale, display = "sites"))
+gp.cmdscale.pts$SampleType<-gp.sp.edit$SampleType
+
+gp.envfit.v <- as.data.frame(scores(gp.envfit, display = "vectors"))
+gp.envfit.v <- cbind(gp.envfit.v, var = rownames(gp.envfit.v))
 
 #define server
 shinyServer(function(input, output){
@@ -35,41 +46,49 @@ shinyServer(function(input, output){
 })
 	
 	#subset the global patterns environmental data frame by user input
+	gp.subNames<-reactive({
+		gp.sp.sub<-rownames(gp.sp[(gp.sp[,input$col1] >= input$col1.min & 
+												gp.sp[,input$col1] <= input$col1.max), ])
+	})
 	gp.spInput<-reactive({
-		gp.sp.sub<-gp.sp[(gp.sp[,input$col1] > input$col1.min & 
-											gp.sp[,input$col1] < input$col1.max), ]
-		#convert to a SpatialPointsDataFrame
-		#coordinates(gp.sp.sub) = c("Longitude", "Latitude")
-		#proj4string(gp.sp.sub)<-CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
-		#gp.sp.sub<-spTransform(gp.sp.sub, CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"))
+		gp.sp.sub<-gp.sp[(gp.sp[,input$col1] >= input$col1.min & 
+											gp.sp[,input$col1] <= input$col1.max), ]
+		
+		#convert to spatial points data frame
 		gp.sp.sub<-SpatialPointsDataFrame(gp.sp.sub[,c("Longitude", "Latitude")], 
 																			proj4string=CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"), 
 																			data=gp.sp.sub)
 		})
-	#do this outside of reactive?
-	#coordinates(gp.spInput) = c("Longitude", "Latitude")
-	#proj4string(gp.spInput)<- CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
 	
-	
-	#try to see what is happening to this data frame when it is subset
-	output$gp.sp.head<- renderPrint({
-		head(gp.spInput())
-	})
-	
-	#return text for printing caption for map
-	#output$caption<- renderText({
-	#	formulaText()
-	#})
+		gp.ordInput<-reactive({
+			gp.ord.sub<-gp.cmdscale.pts[which(rownames(gp.cmdscale.pts)%in% print(gp.subNames())), ]
+			
+		})
 	
 	#generate plot of requrest raster
 	output$gp.spPlot<- renderPlot({
-		#coordinates(gp.spInput) = c("Longitude", "Latitude")
-		#proj4string(gp.spInput)<-CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
 			plot(rastInput())
 			plot(gp.spInput(), col="red", pch=20, cex=2, add=TRUE)
 	})
 	
+	#generate ordination plot with subset points
+	output$gp.ordPlot<-renderPlot({
+		p <- ggplot(gp.ordInput()) +
+			geom_point(mapping = aes(x = Dim1, y = Dim2, colour = SampleType)) +
+			coord_fixed() + ## need aspect ratio of 1!
+			geom_segment(data = gp.envfit.v,
+									 aes(x = 0, xend = Dim1, y = 0, yend = Dim2),
+									 arrow = arrow(length = unit(0.25, "cm")), colour = "grey") +
+			geom_text(data = gp.envfit.v, aes(x = Dim1, y = Dim2, label = var),
+								size = 3);
+		print(p)
+	})
 	
+	#test stuff in app
+	output$test<-renderPrint({
+		test<-gp.ordInput()
+		print(test)
+	})
 	
 })
 

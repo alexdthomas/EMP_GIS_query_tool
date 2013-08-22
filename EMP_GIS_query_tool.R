@@ -69,7 +69,7 @@ proj4string(gp.sp)
 proj4string(gp.sp)<-CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
 
 #visual check
-plot(borders)
+#plot(borders)
 points(coordinates(gp.sp), col="green", pch=20)
 #ok, looks reasonable now
 
@@ -87,7 +87,7 @@ proj4string(hwsd)<-"+proj=longlat +datum=WGS84 +ellps=WGS84 +towgs84=0,0,0"
 #work on BioClim data
 wc.alt<-raster("C:/Users/asus4/Documents/GIS/Data/WorldClim_World_Climate_Data/generic_2_5/alt.bil")
 
-plot(wc.alt)
+#plot(wc.alt)
 #plotting this took a while, looks really nice though...
 
 projection(wc.alt)
@@ -102,15 +102,15 @@ projection(gp.sp)
 #probably should still convert see ?spTransform
 #" In general +datum= is to be prefered to +ellps=, because the datum
 #always fixes the ellipsoid, but the ellipsoid never fixes the datum."
-wc.alt<-projectRaster(wc.alt, crs=proj4string(gp.sp))
+#wc.alt<-projectRaster(wc.alt, crs=proj4string(gp.sp))
 #this takes a really long time and I don't think it really makes a 
 #difference, do the rest later...
 projection(wc.alt)
 #R crashed using zoom, lost this projection..
 
 #do they look different
-plot(wc.alt)
-plot(wc.prec, add=TRUE)
+#plot(wc.alt)
+#plot(wc.prec, add=TRUE)
 
 #exctact values to points
 gp.sp$wc.alt<-extract(wc.alt, coordinates(gp.sp))
@@ -123,97 +123,91 @@ wc.bio<-sapply(wc.bio, raster)
 wc.bio<-stack(wc.bio)
 #don't average bio, each one is seperate
 
-wc.prec<-list.files("C:/Users/asus4/Documents/GIS/Data/WorldClim_World_Climate_Data/generic_2_5", 
-									 pattern="prec.*\\.bil", full.names=TRUE)
-wc.prec<-sapply(wc.prec, raster)
-head(wc.prec)
-wc.prec<-stack(wc.prec)
-wc.prec<-mean(wc.prec)
+
+# wc.prec<-list.files("C:/Users/asus4/Documents/GIS/Data/WorldClim_World_Climate_Data/generic_2_5", 
+# 									 pattern="prec.*\\.bil", full.names=TRUE)
+# wc.prec<-sapply(wc.prec, raster)
+# head(wc.prec)
+# wc.prec<-stack(wc.prec)
+# wc.prec<-mean(wc.prec)
+# #exported this to bring in later, speed up script processing
 
 #tmax
-wc.tmax<-list.files("C:/Users/asus4/Documents/GIS/Data/WorldClim_World_Climate_Data/generic_2_5", 
-										pattern="tmax.*\\.bil", full.names=TRUE)
-wc.tmax<-sapply(wc.tmax, raster)
-head(wc.tmax)
-wc.tmax<-stack(wc.tmax)
-#annual mean tmax
-wc.tmax<-mean(wc.tmax)
-#fix units
-wc.tmax<-wc.tmax/10
+# wc.tmax<-list.files("C:/Users/asus4/Documents/GIS/Data/WorldClim_World_Climate_Data/generic_2_5", 
+# 										pattern="tmax.*\\.bil", full.names=TRUE)
+# wc.tmax<-sapply(wc.tmax, raster)
+# head(wc.tmax)
+# wc.tmax<-stack(wc.tmax)
+# #annual mean tmax
+# wc.tmax<-mean(wc.tmax)
+# #fix units
+# wc.tmax<-wc.tmax/10
+#exported this to bring in later, speed up script processing
 
 #tmin
-wc.tmean<-list.files("C:/Users/asus4/Documents/GIS/Data/WorldClim_World_Climate_Data/generic_2_5", 
-										 pattern="tmean.*\\.bil", full.names=TRUE)
-wc.tmean<-sapply(wc.tmean, raster)
-head(wc.tmean)
-wc.tmean<-stack(wc.tmean)
-wc.tmean<-mean(wc.tmean)
-wc.tmean<-wc.tmean/10
+# wc.tmean<-list.files("C:/Users/asus4/Documents/GIS/Data/WorldClim_World_Climate_Data/generic_2_5", 
+# 										 pattern="tmean.*\\.bil", full.names=TRUE)
+# wc.tmean<-sapply(wc.tmean, raster)
+# head(wc.tmean)
+# wc.tmean<-stack(wc.tmean)
+# wc.tmean<-mean(wc.tmean)
+# wc.tmean<-wc.tmean/10
+# #exported this to bring in later, speed up script processing
 
 #tmin
-wc.tmin<-list.files("C:/Users/asus4/Documents/GIS/Data/WorldClim_World_Climate_Data/generic_2_5", 
-										pattern="tmin.*\\.bil", full.names=TRUE)
-wc.tmin<-sapply(wc.tmin, raster)
-head(wc.tmin)
-wc.tmin<-stack(wc.tmin)
-wc.tmin<-mean(wc.tmin)
-wc.tmin<-wc.tmin/10
+# wc.tmin<-list.files("C:/Users/asus4/Documents/GIS/Data/WorldClim_World_Climate_Data/generic_2_5", 
+# 										pattern="tmin.*\\.bil", full.names=TRUE)
+# wc.tmin<-sapply(wc.tmin, raster)
+# head(wc.tmin)
+# wc.tmin<-stack(wc.tmin)
+# wc.tmin<-mean(wc.tmin)
+# wc.tmin<-wc.tmin/10
+# #exported this to bring in later, speed up script processing
+
+wc.prec<-raster("C:/Users/asus4/Documents/GIS/Data/WorldClim_World_Climate_Data/generic_2_5/wc_prec_mean")
+wc.tmax<-raster("C:/Users/asus4/Documents/GIS/Data/WorldClim_World_Climate_Data/generic_2_5/wc_tmax_mean")
+wc.tmin<-raster("C:/Users/asus4/Documents/GIS/Data/WorldClim_World_Climate_Data/generic_2_5/wc_tmin_mean")
+wc.tmean<-raster("C:/Users/asus4/Documents/GIS/Data/WorldClim_World_Climate_Data/generic_2_5/wc_tmean_mean")
 
 #add values to dataset
-gp.sp.test<-gp.sp
-gp.sp.test
 
 #on wc.bio raster stack
-wc.bio.test<-extract(wc.bio, coordinates(gp.sp.test), df=TRUE)
+wc.bio.test<-extract(wc.bio, coordinates(gp.sp), df=TRUE)
 ncol(wc.bio.test)
 colnames(wc.bio.test)<-(c("ID", paste("bio", 1:19, sep="")))
 #note, regular cbind converts SpatialPointsDataFrame to data frame
 #use spCbind from maptools instead
-gp.sp.test<-spCbind(gp.sp.test, wc.bio.test[,2:20])
+gp.sp<-spCbind(gp.sp, wc.bio.test[,2:20])
 
 
-gp.sp.test$wc.prec<-extract(wc.prec, coordinates(gp.sp.test))
-gp.sp.test$wc.tmax<-extract(wc.tmax, coordinates(gp.sp.test))
-gp.sp.test$wc.tmin<-extract(wc.tmin, coordinates(gp.sp.test))
-gp.sp.test$wc.tmean<-extract(wc.tmean, coordinates(gp.sp.test))
+gp.sp$wc.prec<-extract(wc.prec, coordinates(gp.sp))
+gp.sp$wc.tmax<-extract(wc.tmax, coordinates(gp.sp))
+gp.sp$wc.tmin<-extract(wc.tmin, coordinates(gp.sp))
+gp.sp$wc.tmean<-extract(wc.tmean, coordinates(gp.sp))
 
 #back to the WHSD database, now in SQLite (hopefully...)
 #according to 
 #looks like can extract hwsd cell values to data frame
 #then match to attribute data in SQLite
-gp.sp.test$hwsd<-extract(hwsd, coordinates(gp.sp.test))
+#gp.sp$hwsd<-extract(hwsd, coordinates(gp.sp))
 #right, the ocean samples get no soil cells, but nearest may still be helpful...
 #oh, and will have no salinity...
 
 #this should get the nearest cell
-gp.sp.test$hwsd<-extract(hwsd, coordinates(gp.sp.test), buffer=600, small=TRUE)
+#gp.sp$hwsd<-extract(hwsd, coordinates(gp.sp), buffer=600, small=TRUE)
 #well, it works, but returns lists, kind of messy
-gp.sp.test<-gp.sp.test[, -32]
-
-#try RSAGA pick.from.saga.grid
-library(RSAGA)
-xy<-as.data.frame(coordinates(gp.sp.test))
-colnames(xy)<-c("X.name", "Y.name")
-gp.sp.test$hwsd<-pick.from.ascii.grid(xy, filename=hwsd)
-#that's a pain, annoying error message, can't figure out...
-
-#can I see it?
-plot(hwsd)
-points(coordinates(gp.sp[9:14,]), col="red", pch=20)
-extent(coordinates(gp.sp.test[9:11,]))
-zoom(hwsd, extent(c(-118.0, -117.0, 32.0, 33.0)))
-click(hwsd)
+#gp.sp<-gp.sp[, -32]
 
 #export points and see if I can find them in QGIS
-writeOGR(gp.sp.test, dsn=getwd(), driver="ESRI Shapefile", layer="gp_sp_test")
+#writeOGR(gp.sp, dsn=getwd(), driver="ESRI Shapefile", layer="gp_sp_test")
 #ok, this 0 values should be 4766...
 
 #easier to extract with no buffers and edit...
-gp.sp.test$hwsd<-extract(hwsd, coordinates(gp.sp.test))
+gp.sp$MU_GLOBAL<-extract(hwsd, coordinates(gp.sp))
 #and have to convert
-gp.sp.test<-data.frame(gp.sp.test)
-gp.sp.test[9:11, "hwsd"]<-4766
-coordinates(gp.sp.test) = c("Longitude", "Latitude")
+gp.sp<-data.frame(gp.sp)
+gp.sp[9:11, "MU_GLOBAL"]<-4766
+coordinates(gp.sp) = c("Longitude", "Latitude")
 
 #ok, now try to extract attributes from SQLite database
 require(RSQLite)
@@ -224,23 +218,26 @@ dbListTables(con)
 
 dbGetQuery(con, "pragma table_info(HWSD_DATA)")$name
 
-hwsd.id<-gp.sp.test$hwsd
+hwsd.id<-gp.sp$MU_GLOBAL
 
-(display.fields <- c("ID", "MU_GLOBAL", "ISSOIL", "SHARE", "SU_CODE90", "SU_SYM90", "T_USDA_TEX_CLASS"))
+#(display.fields <- c("ID", "MU_GLOBAL", "ISSOIL", "SHARE", "SU_CODE90", "SU_SYM90", "T_USDA_TEX_CLASS"))
 
-tmp <- dbGetQuery(con, paste("select", paste(display.fields, collapse = ", "), "from HWSD_DATA"))
+#tmp <- dbGetQuery(con, paste("select", paste(display.fields, collapse = ", "), "from HWSD_DATA"))
 #print(tmp)
-class(tmp)
-head(tmp)
-tmp[which(tmp$MU_GLOBAL%in% hwsd.id), ]
+#class(tmp)
+#head(tmp)
+#tmp[which(tmp$MU_GLOBAL%in% hwsd.id), ]
 
-(hwsd.ex <- dbGetQuery(con, paste("select * from HWSD_DATA where MU_GLOBAL = ", 4885)))
+#(hwsd.ex <- dbGetQuery(con, paste("select * from HWSD_DATA where MU_GLOBAL = ", 4885)))
 
 #well, having a hard time getting this exact method to work, 
 #but found one that does
 
 #make a reasonable list of soil variables 
-display.fields <- c("MU_GLOBAL", "ISSOIL", "T_USDA_TEX_CLASS", "T_GRAVEL", "T_SAND", "T_SILT", "T_CLAY", "T_BULK_DENSITY", "T_OC", "T_PH_H2O", "T_BS", "T_ECE")
+display.fields <- c("MU_GLOBAL", "ISSOIL", "T_USDA_TEX_CLASS", 
+										"T_GRAVEL", "T_SAND", "T_SILT", "T_CLAY", 
+										"T_BULK_DENSITY", "T_OC", "T_PH_H2O", "T_BS", 
+										"T_ECE")
 #query the list
 tmp <- dbGetQuery(con, paste("select", paste(display.fields, collapse = ", "), "from HWSD_DATA"))
 #now it's a dataframe and I can match it
@@ -252,75 +249,93 @@ tmp<-apply(tmp, 2, function(x) as.numeric(x))
 tmp<-data.frame(tmp)
 tmp<-stats::aggregate(. ~ MU_GLOBAL, data=tmp, mean)
 
-gp.sp.test<-data.frame(gp.sp.test)
-colnames(gp.sp.test)[32]<-"MU_GLOBAL"
+gp.sp<-data.frame(gp.sp)
 library(plyr)
-gp.sp.test<-join(gp.sp.test, tmp, by="MU_GLOBAL")
-coordinates(gp.sp.test)= c("Longitude", "Latitude")
+gp.sp<-join(gp.sp, tmp, by="MU_GLOBAL")
+coordinates(gp.sp)= c("Longitude", "Latitude")
 
-#grab NPP
-#and another package for ArcInfo files
-library(RArcInfo)
-npp<-get.arcdata("C:/Users/asus4/Documents/GIS/Data/NASA/NPP/info")
-
-#thad didn't work, try these
-library(grid)
-#npp<-readGDAL("C:/Users/asus4/Documents/GIS/Data/NASA/NPP/npp_geotiff/npp_geotiff.TIF")
 #this created a SpatialGridDataFrame, couldn't extract...
 npp<-raster("C:/Users/asus4/Documents/GIS/Data/NASA/NPP/npp_geotiff/npp_geotiff.TIF")
 #raster works though, not file is .TIF not .tiff or .TIFF
 #that worked
-gp.sp.test$npp<-extract(npp, coordinates(gp.sp.test))
+gp.sp$npp<-extract(npp, coordinates(gp.sp))
 
 #what about ocean salinity?
 #still waiting to receive that data...
 
 #so try to feed the new sample data back into phyloseq
 #try to query by data and make ordinations
-gp.sp.test<-data.frame(gp.sp.test)
-rownames(gp.sp.test)<-sample_names(gp)
-sample_data(gp)<-gp.sp.test
+gp.sp<-data.frame(gp.sp)
+rownames(gp.sp)<-sample_names(gp)
+sample_data(gp)<-gp.sp
 sample_data(gp)
 
-gp.dist<-UniFrac(gp)
+#this works, takes a really long time, exported to use later
+#gp.dist<-UniFrac(gp)
+#import the exported file
+gp.dist<-as.dist(read.table("C:/Users/asus4/Documents/EarthMicrobiomeProject/R/EMP_GIS_query_tool/gp_dist.txt"))
+#test makes sure works
 gp.ord<-ordinate(gp, "MDS", gp.dist)
 plot_ordination(gp, gp.ord, type="samples")
 
 #export data to bring into shiny
 
 #exporting the distance matrix as a table/ importing and using as.dist works!
-write.table(as.matrix(gp.dist), "gp_dist.txt")
+#write.table(as.matrix(gp.dist), "gp_dist.txt")
 
-write.table(gp.sp.test, "gp_sp.txt")
+write.table(gp.sp, "gp_sp.txt")
 
-coordinates(gp.sp.test) = c("Longitude", "Latitude")
-wc.tmean.crop<-crop(wc.tmean, (extent(gp.sp.test)+50))
+coordinates(gp.sp) = c("Longitude", "Latitude")
+wc_tmean_crop<-crop(wc.tmean, (extent(gp.sp)+50))
 
 #looks ok
-plot(wc.tmean.crop)
-points(coordinates(gp.sp.test), col="red", pch=20)
+#(wc.tmean.crop)
+#points(coordinates(gp.sp), col="red", pch=20)
 
-wc.prec.crop<-crop(wc.prec, (extent(gp.sp.test)+50))
-npp.crop<-crop(npp, (extent(gp.sp.test)+50))
+wc_prec_crop<-crop(wc.prec, (extent(gp.sp)+50))
+npp_crop<-crop(npp, (extent(gp.sp)+50))
 
-writeRaster(wc.tmean.crop, "wc_tmean_crop")
-writeRaster(wc.prec.crop, "wc_prec_crop")
-writeRaster(npp.crop, "npp_crop")
+#write averaged bioClim rasters for later use
+# writeRaster(wc.prec, "C:/Users/asus4/Documents/GIS/Data/WorldClim_World_Climate_Data/generic_2_5/wc_prec_mean")
+# writeRaster(wc.tmax, "C:/Users/asus4/Documents/GIS/Data/WorldClim_World_Climate_Data/generic_2_5/wc_tmax_mean")
+# writeRaster(wc.tmin, "C:/Users/asus4/Documents/GIS/Data/WorldClim_World_Climate_Data/generic_2_5/wc_tmin_mean")
+# writeRaster(wc.tmean, "C:/Users/asus4/Documents/GIS/Data/WorldClim_World_Climate_Data/generic_2_5/wc_tmean_mean")
+
+#clean up workspace
+rm(wc.alt)
+rm(wc.bio)
+rm(wc.prec)
+rm(wc.tmax)
+rm(wc.tmin)
+rm(hwsd)
+
+#increase cell size for plotting efficieancy 
+#tested aggregating by 2-8, 4 still looks ok and plots faster
+wc_tmean_crop<-raster::aggregate(wc_tmean_crop, 4, mean)
+wc_prec_crop<-raster::aggregate(wc_prec_crop, 4, mean)
+
+#npp has a much smaller raster size, I think it's fine as is
+#npp_crop<-raster::aggregate(npp_crop, 4, mean)
+
+
+writeRaster(wc_tmean_crop, "wc_tmean_crop", overwrite=TRUE)
+writeRaster(wc_prec_crop, "wc_prec_crop", overwrite=TRUE)
+writeRaster(npp_crop, "npp_crop", overwrite=TRUE)
 
 #test first try at simple map
 runApp()
 
 #check if maps really look that similar
-plot(wc.tmean.crop)
-plot(wc.prec.crop)
-plot(npp.crop)
+#(wc.tmean.crop)
+#plot(wc.prec.crop)
+#plot(npp.crop)
 #no they don't
 
 bbox(wc.tmean.crop)
-bbox(coordinates(gp.sp.test))
+bbox(coordinates(gp.sp))
 
-plot(wc.tmean.crop)
-plot(gp.sp.test, col="red", pch=20)
+#(wc.tmean.crop)
+#plot(gp.sp, col="red", pch=20)
 
 image(wc.tmean.crop)
 
@@ -330,8 +345,6 @@ image(wc.tmean.crop)
 colnames(gp.sp)
 quantile(gp.sp$wc.prec)
 
-gp.sp[gp.sp[,"wc.prec"] == 20:70, ]
-gp.sp[gp.sp$wc.prec <70 & gp.sp$wc.prec>20, ]
 #ok, cool
 min(gp.sp)
 gp.sp[(gp.sp[,"wc.prec"] >20 & gp.sp[,"wc.prec"] < 30), ]
@@ -341,6 +354,7 @@ gp.sp[(gp.sp[,"wc.prec"] >20 & gp.sp[,"wc.prec"] < 30), ]
 max(gp.sp[,c("wc.prec", "wc.tmean", "npp")])
 range(gp.sp[,"wc.prec"])
 range(gp.sp[,"wc.tmean"])
+range(gp.sp[,"npp"])
 
 test<-data.frame(gp.sp)
 test<-test[(test[,"wc.prec"] >20 & test[,"wc.prec"] < 30), ]
@@ -349,5 +363,52 @@ proj4string(test)<-CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs8
 
 bbox(test)
 summary(test)
-plot(wc_prec_crop)
-plot(test, col="red", pch=20, cex=2, add=TRUE)
+#plot(wc_prec_crop)
+#plot(test, col="red", pch=20, cex=2, add=TRUE)
+
+#mess around with ordination
+#look at code form zooplankton and see how I did things there
+class(gp.ord)
+#so I already have the ordination, should be able to run envfit from there
+require(vegan)
+
+#this may be a useful function
+#from here http://joey711.github.io/phyloseq-demo/phyloseq-demo.html
+veganotu = function(physeq) {
+	require("vegan")
+	OTU = otu_table(physeq)
+	if (taxa_are_rows(OTU)) {
+		OTU = t(OTU)
+	}
+	return(as(OTU, "matrix"))
+}
+
+gp.veganotu<-veganotu(gp)
+dim(gp.veganotu)
+
+#ah gp.ord was calculated with pcoa from "ape", no scores method
+#redo with cmdscale
+gp.cmdscale<-cmdscale(gp.dist, nrow(gp.veganotu)-1, eig=TRUE)
+
+gp.envfit<-envfit(gp.cmdscale, data.frame(gp.sp))
+
+zoo.envfit<-envfit(zoo.nmds, z.env[,8:90], perm=999, choices=c(1,2), display="sites")
+
+zoo.envfit$vectors$r
+zoo.envfit.plot<-as.matrix(zoo.envfit$vectors$r)
+summary(zoo.envfit.plot)
+names(zoo.envfit.plot[zoo.envfit.plot>0.2,])
+names(zoo.envfit$vectors$arrows[,1])
+
+par(mfrow=c(1,1), mar=c(0,0,0,0))
+plot(zoo.nmds, type="non", display=c("wa", "sp"), main="", 
+		 xaxt="n", yaxt="n", ylab="", xlab="", sub="stress 20.6")
+abline(0,0, h=0, v=0, col="grey", lty=2)
+arrows(0, 0, 
+			 zoo.envfit$vectors$arrows[names(zoo.envfit.plot[zoo.envfit.plot>0.2,]), 1], 
+			 zoo.envfit$vectors$arrows[names(zoo.envfit.plot[zoo.envfit.plot>0.2,]), 2], 
+			 angle=20, col="lightblue", length=0.1)
+text(zoo.envfit$vectors$arrows[names(zoo.envfit.plot[zoo.envfit.plot>0.2,]), 1], 
+		 zoo.envfit$vectors$arrows[names(zoo.envfit.plot[zoo.envfit.plot>0.2,]), 2], 
+		 col="black", cex=0.7, labels=c("TYR", "MPR", "MCA", "MCS", "GFA", "VRS"))
+
