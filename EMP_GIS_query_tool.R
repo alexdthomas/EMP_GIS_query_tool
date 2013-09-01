@@ -8,6 +8,12 @@ library(sp)
 library(rgdal)
 library(raster)
 library(maptools)
+library(RSQLite)
+library(vegan)
+library(ggplot2)
+library(grid)
+
+def.par <- par(no.readonly = TRUE) # save default, for resetting...
 
 data(GlobalPatterns)
 GlobalPatterns
@@ -210,7 +216,6 @@ gp.sp[9:11, "MU_GLOBAL"]<-4766
 coordinates(gp.sp) = c("Longitude", "Latitude")
 
 #ok, now try to extract attributes from SQLite database
-require(RSQLite)
 
 m<-dbDriver("SQLite")
 con<-dbConnect(m, dbname="C:/Users/asus4/Documents/GIS/Data/Harmonized_World_Soil_Database/HWSD")
@@ -351,7 +356,6 @@ proj4string(test)<-CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs8
 #look at code form zooplankton and see how I did things there
 class(gp.ord)
 #so I already have the ordination, should be able to run envfit from there
-require(vegan)
 
 #this may be a useful function
 #from here http://joey711.github.io/phyloseq-demo/phyloseq-demo.html
@@ -382,11 +386,14 @@ head(spe.wa)
 
 #modify this code from here 
 #http://stackoverflow.com/questions/14711470/plotting-envfit-vectors-vegan-package-in-ggplot2
-require(ggplot2)
-require(grid)
+
 
 gp.cmdscale.pts <- as.data.frame(scores(gp.cmdscale, display = "sites"))
 gp.cmdscale.pts$SampleType<-gp.sp.edit$SampleType
+unlist(lapply(gp.cmdscale.pts$SampleType, function(x) col.table[x %in% col.table$SampleType, "Col"]))
+
+gp.cmdscale.pts$Col<-c(rep("#F50583", 3), rep("#05E9E9", 2), 
+											 rep("#26F605", 3), rep("#2B27EF", 3), rep("#9E025D", 3))
 
 #gp.envfit.plot<-as.matrix(gp.envfit$vectors$r)
 
@@ -426,3 +433,56 @@ ggplot(test2) +
 							 arrow = arrow(length = unit(0.25, "cm")), colour = "grey") +
 	geom_text(data = gp.envfit.v, aes(x = Dim1, y = Dim2, label = var),
 						size = 3)
+
+#reduce size of gp.sp
+gp.sp<-as.data.frame(gp.sp)
+colnames(gp.sp)
+
+gp.sp2<-gp.sp[,c(1:8, 28, 31, 33:34, 43, 45:46)]
+head(gp.sp2)
+write.table(gp.sp2, "gp_sp.txt")
+colnames(gp.sp2)
+write.table(as.data.frame(gp.sp), "gp_sp.txt")
+colnames(as.data.frame(gp.sp))
+class(gp.sp)
+
+#add in marspec data
+#biogeo08 is mean annual sea surface salinity 
+#http://people.duke.edu/~mej14/MARSPEC/Data_files/Table1.pdf
+marspec<-raster("C:/Users/asus4/Documents/GIS/Data/marspec/MARSPEC_2o5m/Core_Variables_2o5m/biogeo08_2o5m")
+plot(marspec)
+
+#got a color blind friendly pallete and ggplot2 tutorial here
+#http://www.cookbook-r.com/Graphs/Colors_(ggplot2)/
+
+# The palette with grey:
+cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
+p <- ggplot(gp.cmdscale.pts[1:3,]) +
+	geom_point(mapping = aes(x = Dim1, y = Dim2, colour = SampleType)) +
+	scale_colour_manual(values=c("Freshwater"= "#56B4E9", "Freshwater (creek)" = "#009E73", 
+															 " Ocean" = "#0072B2", "Sediment (estuary)" = "#CC79A7", 
+															 "Soil" = "#E69F00")) +
+	coord_fixed() + ## need aspect ratio of 1!
+	geom_segment(data = gp.envfit.v,
+							 aes(x = 0, xend = Dim1, y = 0, yend = Dim2),
+							 arrow = arrow(length = unit(0.25, "cm")), colour = "grey") +
+	geom_text(data = gp.envfit.v, aes(x = Dim1, y = Dim2, label = var),
+						size = 3);
+print(p)
+
+par(mar=c(0.1, 0.1, 0.1, 0.1))
+plot(wc_tmean_crop, box=FALSE, axes=FALSE)
+plot(gp.spInput(), col="red", pch=20, cex=2, add=TRUE, box=FALSE)
+
+#should make a color pallete table for plotting 
+levels(as.data.frame(gp.sp)$SampleType)
+plot(data.frame(x=1:8, y=1:8), col=cbPalette, pch=20)
+
+col.table<-data.frame(SamplyType=levels(as.data.frame(gp.sp)$SampleType), 
+											col=c("#56B4E9", "#009E73", "#0072B2", "#CC79A7", "#E69F00"))
+
+col.table[col.table$SamplyType %in% gp.sp$SampleType, "col"]
+unlist(lapply(gp.sp$SampleType, function(x) col.table[col.table$SamplyType %in% x, "col"]))
+
+gp.sp$SampleType
