@@ -1,1 +1,1 @@
-Develop tool to query EMP dataset based on global environmental parameters and identify patterns
+Develop tool to query EMP dataset based on global environmental parameters and identify patterns.  EMP_GIS_query_tool.R is for preprocessing and code testing. ui.R and server.R are code for web application, ui.R is the user interface and server.R is the server processes.  
