@@ -5,9 +5,7 @@ library(rgdal)
 library(raster)
 library(maptools)
 
-emp.logo<-"C:/Users/asus4/Documents/EarthMicrobiomeProject/EMP-logos/EMP-green-small.png"
-#define user interface
-
+#set up page with side bar
 shinyUI(pageWithSidebar(
 	
 	#Applicatoin title
@@ -20,30 +18,18 @@ shinyUI(pageWithSidebar(
 								list("Mean Annual Temperature" = "wc.tmean",
 										 "Mean Annual Precipitation"="wc.prec",  
 										 "Net Primary Productivity" = "npp")), 
-		#use slider to subset sample data
+		#use slider to subset sample data, default 0 and 20
 		numericInput("col1.min", "Minimum Value:", 0),
 		numericInput("col1.max", "Maximum Value:", 20),
 		br(),
-# 		selectInput("co2", "Variable:", 
-# 								list("Mean Annual Precipitation"="wc.prec", 
-# 										 "Mean Annual Temperature" = "wc.tmean", 
-# 										 "Net Primary Productivity" = "npp")), 
-# 		sliderInput("range", "Range:", 
-# 								min= 0, max= 100, value= c(45, 55)),
-# 		br(),
-# 		selectInput("co3", "Variable:", 
-# 								list("Mean Annual Precipitation"="wc.prec", 
-# 										 "Mean Annual Temperature" = "wc.tmean", 
-# 										 "Net Primary Productivity" = "npp")), 
-# 		sliderInput("range", "Range:", 
-# 								min= 0, max= 100, value= c(45, 55)),
-# 	br(),
+		
+	#select raster do display
 	selectInput("rast", "Plot Raster:", 
 							choices=c("Mean Annual Temperature",
 												"Mean Annual Precipitation", 
 									 			"Net Primary Productivity"))
 	),
-	#plot map with points 
+	#set up tabs for map, PCoA and attribute table 
 	mainPanel(
 		tabsetPanel(
 			tabPanel("Map", plotOutput("gp.spPlot")),

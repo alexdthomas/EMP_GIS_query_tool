@@ -13,15 +13,15 @@ library(vegan)
 library(ggplot2)
 library(grid)
 
+#save defualt plotting options
 def.par <- par(no.readonly = TRUE) # save default, for resetting...
 
+#import global patterns data from phyloseq
 data(GlobalPatterns)
 GlobalPatterns
 sample_variables(GlobalPatterns)
 head(sample_data(GlobalPatterns))
 rownames(sample_data(GlobalPatterns))
-
-#hmm, well maybe best chance is to add the lat/long to GlobalPatterns
 
 #subset environmental samples (not mock or human, can estimate lat/long)
 sample_data(GlobalPatterns)$Description
@@ -46,6 +46,7 @@ sample_data(gp)$Description
 #Newport Pier 33.6073° N, 117.9289° W
 # Tijuana River Reserve 32.574,  -117.1
 
+#add lat/long columns
 sample_data(gp)$Latitude<-c(34.092870, 45.4086, 34.3333, 44.87191, 46.0100,
 														rep(46.038330, 3), rep(33.6073, 3), rep(32.574, 3))
 
@@ -53,19 +54,19 @@ sample_data(gp)$Longitude<-c(-82.589746, -93.2008, -106.8333, -93.13883, -89.699
 														 rep(-89.613892, 3), rep(-117.9289, 3), rep(-117.1, 3))
 
 #import a world map (inappropriate as these are all in N. America, but ok for example)
-
 borders<-readOGR(dsn="C:/Users/asus4/Documents/GIS/Data/Natural_Earth", 
 								 layer="ne_50m_admin_0_countries")
 
-class(borders)
-
 #can make lat long coordinates in phyloseq class object?
 #coordinates(gp) = c("LONGITUDE", "LATITUDE")
-#nope, make a copy
+#no
+
+#convert to dataframe
 gp.sp<-data.frame(sample_data(gp))
 	
 class(gp.sp)
 head(gp.sp)
+#convert to SpatialPointsDataFrame
 coordinates(gp.sp) = c("Longitude", "Latitude")
 head(coordinates(gp.sp))
 
@@ -75,7 +76,7 @@ proj4string(gp.sp)
 proj4string(gp.sp)<-CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
 
 #visual check
-#plot(borders)
+plot(borders)
 points(coordinates(gp.sp), col="green", pch=20)
 #ok, looks reasonable now
 
@@ -89,6 +90,74 @@ res(hwsd)
 extent(hwsd)
 projection(hwsd)
 proj4string(hwsd)<-"+proj=longlat +datum=WGS84 +ellps=WGS84 +towgs84=0,0,0"
+
+#back to the WHSD database, now in SQLite (hopefully...)
+#according to 
+#looks like can extract hwsd cell values to data frame
+#then match to attribute data in SQLite
+#gp.sp$hwsd<-extract(hwsd, coordinates(gp.sp))
+#right, the ocean samples get no soil cells, but nearest may still be helpful...
+#oh, and will have no salinity...
+
+#this should get the nearest cell
+#gp.sp$hwsd<-extract(hwsd, coordinates(gp.sp), buffer=600, small=TRUE)
+#well, it works, but returns lists, kind of messy
+#gp.sp<-gp.sp[, -32]
+
+#export points and see if I can find them in QGIS
+#writeOGR(gp.sp, dsn=getwd(), driver="ESRI Shapefile", layer="gp_sp_test")
+#ok, this 0 values should be 4766...
+
+#easier to extract with no buffers and edit...
+gp.sp$MU_GLOBAL<-extract(hwsd, coordinates(gp.sp))
+#and have to convert
+gp.sp<-data.frame(gp.sp)
+gp.sp[9:11, "MU_GLOBAL"]<-4766
+coordinates(gp.sp) = c("Longitude", "Latitude")
+
+#ok, now try to extract attributes from SQLite database
+
+m<-dbDriver("SQLite")
+con<-dbConnect(m, dbname="C:/Users/asus4/Documents/GIS/Data/Harmonized_World_Soil_Database/HWSD")
+dbListTables(con)							 
+
+dbGetQuery(con, "pragma table_info(HWSD_DATA)")$name
+
+hwsd.id<-gp.sp$MU_GLOBAL
+
+#(display.fields <- c("ID", "MU_GLOBAL", "ISSOIL", "SHARE", "SU_CODE90", "SU_SYM90", "T_USDA_TEX_CLASS"))
+
+#tmp <- dbGetQuery(con, paste("select", paste(display.fields, collapse = ", "), "from HWSD_DATA"))
+#print(tmp)
+#class(tmp)
+#head(tmp)
+#tmp[which(tmp$MU_GLOBAL%in% hwsd.id), ]
+
+#(hwsd.ex <- dbGetQuery(con, paste("select * from HWSD_DATA where MU_GLOBAL = ", 4885)))
+
+#well, having a hard time getting this exact method to work, 
+#but found one that does
+
+#make a reasonable list of soil variables 
+display.fields <- c("MU_GLOBAL", "ISSOIL", "T_USDA_TEX_CLASS", 
+										"T_GRAVEL", "T_SAND", "T_SILT", "T_CLAY", 
+										"T_BULK_DENSITY", "T_OC", "T_PH_H2O", "T_BS", 
+										"T_ECE")
+#query the list
+tmp <- dbGetQuery(con, paste("select", paste(display.fields, collapse = ", "), "from HWSD_DATA"))
+#now it's a dataframe and I can match it
+tmp<-tmp[which(tmp$MU_GLOBAL%in% hwsd.id), ]
+#spCbind what I want to my data frame
+#hmm, there are more than value per MU_GLOBAL ID
+#not sure why, but reasonable short term solution is to average
+tmp<-apply(tmp, 2, function(x) as.numeric(x))
+tmp<-data.frame(tmp)
+tmp<-stats::aggregate(. ~ MU_GLOBAL, data=tmp, mean)
+
+gp.sp<-data.frame(gp.sp)
+library(plyr)
+gp.sp<-join(gp.sp, tmp, by="MU_GLOBAL")
+coordinates(gp.sp)= c("Longitude", "Latitude")
 
 #work on BioClim data
 wc.alt<-raster("C:/Users/asus4/Documents/GIS/Data/WorldClim_World_Climate_Data/generic_2_5/alt.bil")
@@ -170,10 +239,19 @@ wc.bio<-stack(wc.bio)
 # wc.tmin<-wc.tmin/10
 # #exported this to bring in later, speed up script processing
 
+#write averaged bioClim rasters for later use
+# writeRaster(wc.prec, "C:/Users/asus4/Documents/GIS/Data/WorldClim_World_Climate_Data/generic_2_5/wc_prec_mean")
+# writeRaster(wc.tmax, "C:/Users/asus4/Documents/GIS/Data/WorldClim_World_Climate_Data/generic_2_5/wc_tmax_mean")
+# writeRaster(wc.tmin, "C:/Users/asus4/Documents/GIS/Data/WorldClim_World_Climate_Data/generic_2_5/wc_tmin_mean")
+# writeRaster(wc.tmean, "C:/Users/asus4/Documents/GIS/Data/WorldClim_World_Climate_Data/generic_2_5/wc_tmean_mean")
+
+#import processed rasters 
 wc.prec<-raster("C:/Users/asus4/Documents/GIS/Data/WorldClim_World_Climate_Data/generic_2_5/wc_prec_mean")
 wc.tmax<-raster("C:/Users/asus4/Documents/GIS/Data/WorldClim_World_Climate_Data/generic_2_5/wc_tmax_mean")
 wc.tmin<-raster("C:/Users/asus4/Documents/GIS/Data/WorldClim_World_Climate_Data/generic_2_5/wc_tmin_mean")
 wc.tmean<-raster("C:/Users/asus4/Documents/GIS/Data/WorldClim_World_Climate_Data/generic_2_5/wc_tmean_mean")
+#import net primary productivity
+npp<-raster("C:/Users/asus4/Documents/GIS/Data/NASA/NPP/npp_geotiff/npp_geotiff.TIF")
 
 #add values to dataset
 
@@ -190,79 +268,6 @@ gp.sp$wc.prec<-extract(wc.prec, coordinates(gp.sp))
 gp.sp$wc.tmax<-extract(wc.tmax, coordinates(gp.sp))
 gp.sp$wc.tmin<-extract(wc.tmin, coordinates(gp.sp))
 gp.sp$wc.tmean<-extract(wc.tmean, coordinates(gp.sp))
-
-#back to the WHSD database, now in SQLite (hopefully...)
-#according to 
-#looks like can extract hwsd cell values to data frame
-#then match to attribute data in SQLite
-#gp.sp$hwsd<-extract(hwsd, coordinates(gp.sp))
-#right, the ocean samples get no soil cells, but nearest may still be helpful...
-#oh, and will have no salinity...
-
-#this should get the nearest cell
-#gp.sp$hwsd<-extract(hwsd, coordinates(gp.sp), buffer=600, small=TRUE)
-#well, it works, but returns lists, kind of messy
-#gp.sp<-gp.sp[, -32]
-
-#export points and see if I can find them in QGIS
-#writeOGR(gp.sp, dsn=getwd(), driver="ESRI Shapefile", layer="gp_sp_test")
-#ok, this 0 values should be 4766...
-
-#easier to extract with no buffers and edit...
-gp.sp$MU_GLOBAL<-extract(hwsd, coordinates(gp.sp))
-#and have to convert
-gp.sp<-data.frame(gp.sp)
-gp.sp[9:11, "MU_GLOBAL"]<-4766
-coordinates(gp.sp) = c("Longitude", "Latitude")
-
-#ok, now try to extract attributes from SQLite database
-
-m<-dbDriver("SQLite")
-con<-dbConnect(m, dbname="C:/Users/asus4/Documents/GIS/Data/Harmonized_World_Soil_Database/HWSD")
-dbListTables(con)							 
-
-dbGetQuery(con, "pragma table_info(HWSD_DATA)")$name
-
-hwsd.id<-gp.sp$MU_GLOBAL
-
-#(display.fields <- c("ID", "MU_GLOBAL", "ISSOIL", "SHARE", "SU_CODE90", "SU_SYM90", "T_USDA_TEX_CLASS"))
-
-#tmp <- dbGetQuery(con, paste("select", paste(display.fields, collapse = ", "), "from HWSD_DATA"))
-#print(tmp)
-#class(tmp)
-#head(tmp)
-#tmp[which(tmp$MU_GLOBAL%in% hwsd.id), ]
-
-#(hwsd.ex <- dbGetQuery(con, paste("select * from HWSD_DATA where MU_GLOBAL = ", 4885)))
-
-#well, having a hard time getting this exact method to work, 
-#but found one that does
-
-#make a reasonable list of soil variables 
-display.fields <- c("MU_GLOBAL", "ISSOIL", "T_USDA_TEX_CLASS", 
-										"T_GRAVEL", "T_SAND", "T_SILT", "T_CLAY", 
-										"T_BULK_DENSITY", "T_OC", "T_PH_H2O", "T_BS", 
-										"T_ECE")
-#query the list
-tmp <- dbGetQuery(con, paste("select", paste(display.fields, collapse = ", "), "from HWSD_DATA"))
-#now it's a dataframe and I can match it
-tmp<-tmp[which(tmp$MU_GLOBAL%in% hwsd.id), ]
-#spCbind what I want to my data frame
-#hmm, there are more than value per MU_GLOBAL ID
-#not sure why, but reasonable short term solution is to average
-tmp<-apply(tmp, 2, function(x) as.numeric(x))
-tmp<-data.frame(tmp)
-tmp<-stats::aggregate(. ~ MU_GLOBAL, data=tmp, mean)
-
-gp.sp<-data.frame(gp.sp)
-library(plyr)
-gp.sp<-join(gp.sp, tmp, by="MU_GLOBAL")
-coordinates(gp.sp)= c("Longitude", "Latitude")
-
-#this created a SpatialGridDataFrame, couldn't extract...
-npp<-raster("C:/Users/asus4/Documents/GIS/Data/NASA/NPP/npp_geotiff/npp_geotiff.TIF")
-#raster works though, not file is .TIF not .tiff or .TIFF
-#that worked
 gp.sp$npp<-extract(npp, coordinates(gp.sp))
 
 #what about ocean salinity?
@@ -291,20 +296,12 @@ plot_ordination(gp, gp.ord, type="samples")
 write.table(gp.sp, "gp_sp.txt")
 
 coordinates(gp.sp) = c("Longitude", "Latitude")
+
+#crop rasters for display
 wc_tmean_crop<-crop(wc.tmean, (extent(gp.sp)+50))
-
-#looks ok
-#(wc.tmean.crop)
-#points(coordinates(gp.sp), col="red", pch=20)
-
 wc_prec_crop<-crop(wc.prec, (extent(gp.sp)+50))
 npp_crop<-crop(npp, (extent(gp.sp)+50))
 
-#write averaged bioClim rasters for later use
-# writeRaster(wc.prec, "C:/Users/asus4/Documents/GIS/Data/WorldClim_World_Climate_Data/generic_2_5/wc_prec_mean")
-# writeRaster(wc.tmax, "C:/Users/asus4/Documents/GIS/Data/WorldClim_World_Climate_Data/generic_2_5/wc_tmax_mean")
-# writeRaster(wc.tmin, "C:/Users/asus4/Documents/GIS/Data/WorldClim_World_Climate_Data/generic_2_5/wc_tmin_mean")
-# writeRaster(wc.tmean, "C:/Users/asus4/Documents/GIS/Data/WorldClim_World_Climate_Data/generic_2_5/wc_tmean_mean")
 
 #clean up workspace
 rm(wc.alt)
@@ -320,41 +317,13 @@ wc_tmean_crop<-raster::aggregate(wc_tmean_crop, 4, mean)
 wc_prec_crop<-raster::aggregate(wc_prec_crop, 4, mean)
 
 #npp has a much smaller raster size, I think it's fine as is
-#npp_crop<-raster::aggregate(npp_crop, 4, mean)
 
-
+#export rasters for web app
 writeRaster(wc_tmean_crop, "wc_tmean_crop", overwrite=TRUE)
 writeRaster(wc_prec_crop, "wc_prec_crop", overwrite=TRUE)
 writeRaster(npp_crop, "npp_crop", overwrite=TRUE)
 
-#test first try at simple map
-runApp()
-
-#subsetting the points
-#right, have to do this before I convert to SpatialPointsDataFrame
-#or convert back to data frame, subset, and convert back, but thats silly
-
-#ok, cool
-gp.sp[(gp.sp[,"wc.prec"] >20 & gp.sp[,"wc.prec"] < 30), ]
-
-#now to get the optional min and max for the sliders can use
-#conditional panels 
-max(gp.sp[,c("wc.prec", "wc.tmean", "npp")])
-range(data.frame(gp.sp[,"wc.prec"]))
-range(data.frame(gp.sp[,"wc.tmean"]))
-range(data.frame(gp.sp[,"npp"]))
-
-test<-data.frame(gp.sp)
-test<-test[(test[,"wc.prec"] >20 & test[,"wc.prec"] < 30), ]
-coordinates(test) = c("Longitude", "Latitude")
-proj4string(test)<-CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
-
-#plot(wc_prec_crop)
-#plot(test, col="red", pch=20, cex=2, add=TRUE)
-
-#mess around with ordination
-#look at code form zooplankton and see how I did things there
-class(gp.ord)
+#develop steps for web app
 #so I already have the ordination, should be able to run envfit from there
 
 #this may be a useful function
@@ -387,38 +356,16 @@ head(spe.wa)
 #modify this code from here 
 #http://stackoverflow.com/questions/14711470/plotting-envfit-vectors-vegan-package-in-ggplot2
 
-
 gp.cmdscale.pts <- as.data.frame(scores(gp.cmdscale, display = "sites"))
 gp.cmdscale.pts$SampleType<-gp.sp.edit$SampleType
 unlist(lapply(gp.cmdscale.pts$SampleType, function(x) col.table[x %in% col.table$SampleType, "Col"]))
-
-gp.cmdscale.pts$Col<-c(rep("#F50583", 3), rep("#05E9E9", 2), 
-											 rep("#26F605", 3), rep("#2B27EF", 3), rep("#9E025D", 3))
 
 #gp.envfit.plot<-as.matrix(gp.envfit$vectors$r)
 
 gp.envfit.v <- as.data.frame(scores(gp.envfit, display = "vectors"))
 gp.envfit.v <- cbind(gp.envfit.v, var = rownames(gp.envfit.v))
-#spp.scrs <- spp.scrs[names(gp.envfit.plot[gp.envfit.plot>0.7,]),]
 
-p <- ggplot(gp.cmdscale.pts) +
-	geom_point(mapping = aes(x = Dim1, y = Dim2, colour = SampleType)) +
-	coord_fixed() + ## need aspect ratio of 1!
-	geom_segment(data = gp.envfit.v,
-							 aes(x = 0, xend = Dim1, y = 0, yend = Dim2),
-							 arrow = arrow(length = unit(0.25, "cm")), colour = "grey") +
-	geom_text(data = gp.envfit.v, aes(x = Dim1, y = Dim2, label = var),
-						size = 3)
-
-p
-#still not super legable, but use it for now
-
-# ordiplot(scores(gp.cmdscale)[,c(1,2)], type="t", main="PCoA with 'species'")
-# abline(0,0, h=0, v=0, col="grey", lty=2)
-# #text()
-# plot(gp.envfit, choices=c(1,2), col="blue", p.max=0.002, cex=0.7)
-
-#subset points to plot by what is selected?
+#test how to subset points to plot by what is selected?
 test<-read.table("C:/Users/asus4/Documents/EarthMicrobiomeProject/R/EMP_GIS_query_tool/gp_sp.txt")
 rownames(test)
 test<-rownames(test[(test[,"wc.prec"] >20 & test[,"wc.prec"] < 30), ])
@@ -434,29 +381,25 @@ ggplot(test2) +
 	geom_text(data = gp.envfit.v, aes(x = Dim1, y = Dim2, label = var),
 						size = 3)
 
-#reduce size of gp.sp
-gp.sp<-as.data.frame(gp.sp)
-colnames(gp.sp)
-
-gp.sp2<-gp.sp[,c(1:8, 28, 31, 33:34, 43, 45:46)]
-head(gp.sp2)
-write.table(gp.sp2, "gp_sp.txt")
-colnames(gp.sp2)
+#export global patterns metadata with supplimnetal data appended 
 write.table(as.data.frame(gp.sp), "gp_sp.txt")
 colnames(as.data.frame(gp.sp))
 class(gp.sp)
 
-#add in marspec data
+#explore marspec data (will be useful for marine samples)
 #biogeo08 is mean annual sea surface salinity 
 #http://people.duke.edu/~mej14/MARSPEC/Data_files/Table1.pdf
 marspec<-raster("C:/Users/asus4/Documents/GIS/Data/marspec/MARSPEC_2o5m/Core_Variables_2o5m/biogeo08_2o5m")
 plot(marspec)
 
+#test better plotting 
+
 #got a color blind friendly pallete and ggplot2 tutorial here
 #http://www.cookbook-r.com/Graphs/Colors_(ggplot2)/
 
 # The palette with grey:
-cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+col.table<-data.frame(SampleType=levels(as.data.frame(gp.sp)$SampleType), 
+											col=c("#00F0F0", "#03FFAC", "#2300FF", "#F000C2", "#FF0D00"))
 
 p <- ggplot(gp.cmdscale.pts[1:3,]) +
 	geom_point(mapping = aes(x = Dim1, y = Dim2, colour = SampleType)) +
@@ -471,9 +414,16 @@ p <- ggplot(gp.cmdscale.pts[1:3,]) +
 						size = 3);
 print(p)
 
+gp.sp.sub<-SpatialPointsDataFrame(gp.sp[,c("Longitude", "Latitude")], 
+																	proj4string=CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"), 
+																	data=gp.sp)
+
 par(mar=c(0.1, 0.1, 0.1, 0.1))
 plot(wc_tmean_crop, box=FALSE, axes=FALSE)
-plot(gp.spInput(), col="red", pch=20, cex=2, add=TRUE, box=FALSE)
+plot(gp.sp.sub, col=as.character(col.table$col),
+		 pch=20, cex=2, add=TRUE, box=FALSE)
+legend("bottomleft", legend=as.character(col.table$SampleType), 
+			 as.character(col=col.table$col), pch=20)
 
 #should make a color pallete table for plotting 
 levels(as.data.frame(gp.sp)$SampleType)
@@ -486,3 +436,8 @@ col.table[col.table$SamplyType %in% gp.sp$SampleType, "col"]
 unlist(lapply(gp.sp$SampleType, function(x) col.table[col.table$SamplyType %in% x, "col"]))
 
 gp.sp$SampleType
+
+par(mar=c(0.1, 0.1, 0.1, 0.1))
+plot(rastInput(), box=FALSE, axes=FALSE)
+plot(gp.spInput(), col=gp.mapCol(),
+		 pch=20, cex=2, add=TRUE, box=FALSE)

@@ -10,7 +10,7 @@ require(vegan)
 
 #import GlobalPatterns
 data(GlobalPatterns)
-#subset
+#subset global patterns samples
 gp<-subset_samples(GlobalPatterns, rownames(sample_data(GlobalPatterns)) %in% rownames(sample_data(GlobalPatterns)[c(1:3,11:21), ]))
 #may not need these
 
@@ -24,22 +24,30 @@ wc_tmean_crop<-raster("C:/Users/asus4/Documents/EarthMicrobiomeProject/R/EMP_GIS
 wc_prec_crop<-raster("C:/Users/asus4/Documents/EarthMicrobiomeProject/R/EMP_GIS_query_tool/wc_prec_crop")
 npp_crop<-raster("C:/Users/asus4/Documents/EarthMicrobiomeProject/R/EMP_GIS_query_tool/npp_crop")
 
-#set up for the ordination plot
+#calcluate PCoA
 gp.cmdscale<-cmdscale(gp.dist, nrow(gp.veganotu)-1, eig=TRUE)
+#subset environmental samples for biplot 
 gp.sp.edit<-gp.sp
 gp.sp.edit<-gp.sp.edit[,c(1:8, 28, 31, 33:34, 43, 45:46)]
+#rename environmental samples 
 colnames(gp.sp.edit)[8:15]<-c("Elev.", "Precip.", "Temp.", "Long.", "Lat.", "pH", "Salinity", "NPP")
+#calculate multivariate biblot 
 gp.envfit<-envfit(gp.cmdscale, gp.sp.edit)
 
+#grab oridination scores in data frame
 gp.cmdscale.pts <- as.data.frame(scores(gp.cmdscale, display = "sites"))
+#add SampleType for plotting 
 gp.cmdscale.pts$SampleType<-gp.sp.edit$SampleType
 
+#grab multivariate biplot scores in data frame
 gp.envfit.v <- as.data.frame(scores(gp.envfit, display = "vectors"))
+#add rownmaes as column for plotting
 gp.envfit.v <- cbind(gp.envfit.v, var = rownames(gp.envfit.v))
 
-#set color palette
-col.table<-data.frame(SamplyType=levels(as.data.frame(gp.sp)$SampleType), 
-											col=c("#00F0F0", "#03FFAC", "#2300FF", "#F000C2", "#FF0D00"))
+#make table to match sample types and colors
+col.table<-data.frame(SampleType=levels(as.data.frame(gp.sp)$SampleType), 
+											col=c("#2300FF", "#03FFAC", "#000000", "#F000C2", "#FF0D00"))
+
 #define server
 shinyServer(function(input, output){
 	rastInput <-reactive({
@@ -66,27 +74,26 @@ shinyServer(function(input, output){
 		gp.sp.sub<-gp.sp[(gp.sp[,input$col1] >= input$col1.min & 
 											gp.sp[,input$col1] <= input$col1.max), ]		
 		
-		#convert to spatial points data frame
-		gp.sp.sub<-SpatialPointsDataFrame(gp.sp.sub[,c("Longitude", "Latitude")], 
-																			proj4string=CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"), 
-																			data=gp.sp.sub)
-		})
+	#convert to spatial points data frame
+	gp.sp.sub<-SpatialPointsDataFrame(gp.sp.sub[,c("Longitude", "Latitude")], 
+																		proj4string=CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"), 
+																		data=gp.sp.sub)
+	})
 	
 	#get map colors
 	gp.mapCol<-reactive({
 		Col<-gp.sp[(gp.sp[,input$col1] >= input$col1.min & 
 												gp.sp[,input$col1] <= input$col1.max), ]
 		
-		Col<-as.character(unlist(lapply(Col$SampleType, function(x) col.table[col.table$SamplyType %in% x, "col"])))
+		Col<-as.character(unlist(lapply(Col$SampleType, function(x) col.table[col.table$SampleType %in% x, "col"])))
 	
 	})
+	
 		#subset the points plotted in ordination by user input
 		gp.ordInput<-reactive({
 			gp.ord.sub<-gp.cmdscale.pts[which(rownames(gp.cmdscale.pts)%in% print(gp.subNames())), ]
 			
 		})
-	
-
 	
 	#generate plot of requested raster and selected points
 	output$gp.spPlot<- renderPlot({
@@ -94,14 +101,16 @@ shinyServer(function(input, output){
 			plot(rastInput(), box=FALSE, axes=FALSE)
 			plot(gp.spInput(), col=gp.mapCol(),
 					 pch=20, cex=2, add=TRUE, box=FALSE)
+			legend("bottomleft", legend=as.character(col.table$SampleType), 
+					 col=as.character(col.table$col), pch=20, cex=1.5)
 	})
 	
 	#generate ordination plot with subset points
 	output$gp.ordPlot<-renderPlot({
 		p <- ggplot(gp.ordInput()) +
 			geom_point(mapping = aes(x = Dim1, y = Dim2, colour = SampleType)) +
-			scale_colour_manual(values=c("Freshwater"= "#00F0F0", "Freshwater (creek)" = "#03FFAC", 
-																	 "Ocean" = "#2300FF", "Sediment (estuary)" = "#F000C2", 
+			scale_colour_manual(values=c("Freshwater"= "#2300FF", "Freshwater (creek)" = "#03FFAC", 
+																	 "Ocean" = "#000000", "Sediment (estuary)" = "#F000C2", 
 																	 "Soil" = "#FF0D00")) +	
 			coord_fixed() + ## need aspect ratio of 1!
 			geom_segment(data = gp.envfit.v,
@@ -117,10 +126,5 @@ shinyServer(function(input, output){
 		gp.sub()
 	})
 	
-	#test stuff in app
-# 	output$test<-renderPrint({
-# 		test<-gp.ordInput()
-# 		print(test)
-# 	})
 })
 
